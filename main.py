@@ -94,9 +94,9 @@ class MainController(QMainWindow):
             self.infoWindow("請輸入一個命令。", mestype="error")
 
     def handle_start(self):
-        if not self.esp32_serial.isConnected():
-            self.infoWindow("請先連接到 ESP32。", mestype="error")
-            return
+        # if not self.esp32_serial.isConnected():
+        #     self.infoWindow("請先連接到 ESP32。", mestype="error")
+        #     return
         self.startTimes += 1
 
         if self.startTimes == 1:
@@ -114,6 +114,12 @@ class MainController(QMainWindow):
             self.canvas.setPaths(self.planned_paths)
             self.infoWindow(
                 f"規劃後的路徑點數量：{len(self.planned_paths)}", mestype="info")
+            if len(self.planned_paths) >= 0:
+                self.infoWindow(
+                    "已完成路徑規劃，請再次點擊開始按鈕以執行 G-code 命令。", mestype="success")
+                startPoint = self.planned_paths[0][0]
+                self.gcode_processor.goTo(
+                    startPoint.x, startPoint.y)  # 清除之前的命令，確保不會混入舊命令
         elif self.startTimes == 2:
             self.timer.start(100)
             for path in self.planned_paths:

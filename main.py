@@ -6,7 +6,7 @@ from canvas import mainCanvas
 from gcode import GCodeProcessor
 from UI import Ui_MainWindow
 from dialog import SandPlotDialog
-from planner import PathPlanner
+from planner import PathPlannerPro
 import sys
 
 
@@ -108,7 +108,7 @@ class MainController(QMainWindow):
             self.infoWindow(f"從畫布獲取的路徑點數量：{len(paths)}", mestype="info")
             obstacles = self.canvas.getObstacles()
             # 初始化路徑規劃器，這裡會自動處理單一 tuple 的障礙物
-            planner = PathPlanner(paths, obstacles)
+            planner = PathPlannerPro(paths, obstacles)
             self.planned_paths = planner.calculatePath()
             self.canvas.setDrawMode("plan")
             self.canvas.setPaths(self.planned_paths)
@@ -117,7 +117,7 @@ class MainController(QMainWindow):
         elif self.startTimes == 2:
             self.timer.start(100)
             for path in self.planned_paths:
-                self.gcode_processor.goTo(path.x, path.y)
+                self.gcode_processor.goTo(path[0].x, path[0].y)
             self.infoWindow("已開始執行規劃路徑的 G-code 命令。", mestype="success")
             self.startTimes = 0
 

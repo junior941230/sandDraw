@@ -227,3 +227,196 @@ class PathPlanner:
             path = self.resolveObstacle(path, obstacle)
 
         return path
+
+
+class PathPlannerPro:
+    MARGIN = 5          # 安全邊距（離障礙物角點的偏移量）
+    MAX_ITER = 20       # 最大迭代次數，防止無限迴圈
+
+    def __init__(self, paths, obstacles):
+        """
+        paths     : List[Point]         路徑點列表
+        obstacles : List[tuple]         障礙物列表，每個為 (xmin, ymin, xmax, ymax)
+                    也接受單一 tuple，會自動包成 list
+        """
+        self.paths = paths
+        # 統一處理成 list，方便支援多障礙物
+        if isinstance(obstacles, tuple) and isinstance(obstacles[0], (int, float)):
+            self.obstacles = [obstacles]
+        else:
+            self.obstacles = list(obstacles)
+
+    # ─────────────────────────────────────────
+    # 基礎幾何工具
+    # ─────────────────────────────────────────
+
+    def distance(self, p1, p2):
+        """兩點距離"""
+        return math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
+
+    def path_length(self, points):
+        """計算一串點的總路徑長度"""
+        return sum(self.distance(points[i], points[i + 1])
+                   for i in range(len(points) - 1))
+
+    def cross_product(self, o, a, b):
+        """
+        向量 OA × OB 的 z 分量
+        > 0 → b 在 OA 左側
+        < 0 → b 在 OA 右側
+        """
+        return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+
+    def pointInRects(self, p, rects):
+        """判斷點是否在矩形內（含邊界）"""
+        for i in range(len(rects)):
+            xmin, ymin, xmax, ymax = rects[i]
+            if xmin <= p.x <= xmax and ymin <= p.y <= ymax:
+                return True, i  # 回傳碰撞狀態與碰撞的障礙物編號
+        return False, None
+
+    # ─────────────────────────────────────────
+    # 線段與矩形相交偵測（Liang-Barsky）
+    # ─────────────────────────────────────────
+
+    def segmentIntersectRect(self, p1, p2, rect):
+        xmin, ymin, xmax, ymax = rect
+
+        dx = p2.x - p1.x
+        dy = p2.y - p1.y
+
+        p = [-dx, dx, -dy, dy]
+        q = [p1.x - xmin, xmax - p1.x, p1.y - ymin, ymax - p1.y]
+
+        t_min, t_max = 0.0, 1.0
+
+        for pi, qi in zip(p, q):
+            if pi == 0:
+                if qi < 0:
+                    return False
+            elif pi < 0:
+                t_min = max(t_min, qi / pi)
+            else:
+                t_max = min(t_max, qi / pi)
+
+        return t_min <= t_max
+
+    # ─────────────────────────────────────────
+    # 繞行角點計算
+    # ─────────────────────────────────────────
+
+    def getCornersByDist(self, p, rect):
+        """
+        取得矩形四個角點（含安全邊距向外推）
+        回傳順序：左上、右上、右下、左下
+        """
+        xmin, ymin, xmax, ymax = rect
+        points = [Point(xmin, ymax),  # C1 左上
+                  Point(xmax, ymax),  # C2 右上
+                  Point(xmax, ymin),  # C3 右下
+                  Point(xmin, ymin)  # C4 左下
+                  ]
+        return sorted(points, key=lambda c: self.distance(p, c))
+
+    def get_left_detour(self, from_point, rect):
+        """
+        繞左側的角點序列
+        用叉積判斷哪些角點在路徑左側，依序排列
+        """
+        corner1 = self.getCornersByDist(from_point, rect)[0]
+        corners = self.getCornersByDist(corner1, rect)
+        # 如果兩個最近的角點距離非常近，選擇第二個作為 corner2
+        if self.distance(corner1, corners[0]) < 0.1:
+            corner2 = corners[1]
+        else:
+            corner2 = corners[0]
+
+        return [corner1, corner2]
+
+    def get_right_detour(self, from_point, rect):
+        """
+        繞右側的角點序列
+        用叉積判斷哪些角點在路徑右側，依序排列
+        """
+        corner1 = self.getCornersByDist(from_point, rect)[1]
+        corners = self.getCornersByDist(corner1, rect)
+        # 如果兩個最近的角點距離非常近，選擇第二個作為 corner2
+        if self.distance(corner1, corners[0]) < 0.1:
+            corner2 = corners[1]
+        else:
+            corner2 = corners[0]
+
+        return [corner1, corner2]
+
+    # ─────────────────────────────────────────
+    # 找出最佳繞行方案
+    # ─────────────────────────────────────────
+
+    def getBestPath(self, from_point, to_point, obstacle):
+        corners1 = self.get_left_detour(from_point, obstacle)
+        corners2 = self.get_right_detour(from_point, obstacle)
+        left_len = self.path_length([from_point] + corners1 + [to_point])
+        right_len = self.path_length([from_point] + corners2 + [to_point])
+        best_detour = corners1 if left_len < right_len else corners2
+        print(f"從 {from_point} 到 {to_point}，左繞行長度: {left_len:.2f}, 右繞行長度: {right_len:.2f}，選擇 {'左' if left_len < right_len else '右'}側繞行")
+        print(f"左側繞行點: {corners1}, 右側繞行點: {corners2}")
+        return best_detour
+
+    # ─────────────────────────────────────────
+    # 膨脹障礙物（將障礙物擴大 MARGIN，簡化繞行邏輯）
+    # ─────────────────────────────────────────
+
+    def dilateObstacle(self, rect):
+        xmin, ymin, xmax, ymax = rect
+        m = self.MARGIN
+        return (xmin - m, ymin - m, xmax + m, ymax + m)
+
+    # ─────────────────────────────────────────
+    # 對單一障礙物處理整條路徑
+    # ─────────────────────────────────────────
+
+    def resolvePath(self, paths, obstacles):
+        """對一個障礙物，迭代處理直到路徑完全無碰撞"""
+        isLastCollision = False
+        newPaths = []
+        for point in paths:
+            collisions, obsNum = self.pointInRects(
+                point, obstacles)  # 先檢查點是否在任何障礙物內，若不在則無需處理
+            if collisions and not isLastCollision:
+                newPaths[-1] = (newPaths[-1][0], True,
+                                obsNum)  # 碰撞開始，標記上一點
+                print(f"標記: {newPaths[-1]}")
+            if not collisions:
+                newPaths.append((point, False, obsNum))
+            print(f"處理路徑點: {point}, 碰撞: {collisions}, 上次碰撞: {isLastCollision}")
+            isLastCollision = collisions
+
+        resultPaths = []
+        for i in range(len(newPaths) - 1):
+            resultPaths.append(newPaths[i])  # 加入當前點
+            if newPaths[i][1]:  # 如果當前點是標記點
+                from_point = newPaths[i][0]  # 從上一個非碰撞點出發
+                to_point = newPaths[i + 1][0]    # 到下一個非碰撞點
+                obstacle = obstacles[newPaths[i][2]]  # 碰撞的障礙物
+                detour = self.getBestPath(from_point, to_point, obstacle)
+                resultPaths.extend([(p, True, None) for p in detour])
+        return resultPaths
+
+    # ─────────────────────────────────────────
+    # 主入口
+    # ─────────────────────────────────────────
+
+    def calculatePath(self):
+        """
+        對所有路徑點依序處理，回傳最終無碰撞路徑
+        """
+        # 先膨脹障礙物，簡化繞行邏輯
+        dilatedObstacles = []
+        for obstacle in self.obstacles:
+            dilated = self.dilateObstacle(obstacle)
+            dilatedObstacles.append(dilated)
+
+        paths = self.resolvePath(
+            self.paths, dilatedObstacles)  # 目前只處理第一個障礙物，後續可擴展
+
+        return paths

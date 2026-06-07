@@ -42,7 +42,7 @@ class mainCanvas(QWidget):
         self.obstacles = []
         self.obstaclesStartPoint = None
 
-        self.paths: list[Point] = []
+        self.paths = []
 
     def setDrawMode(self, mode: str):
         self.drawMode = mode
@@ -100,15 +100,22 @@ class mainCanvas(QWidget):
                     lastPoint = point
         elif self.drawMode == "plan":
             if len(self.paths) > 0:
+
                 lastPoint = QPoint(
-                    int(self.paths[0].x * self.scale) + center.x(), int(self.paths[0].y * self.scale) + center.y())
+                    int(self.paths[0][0].x * self.scale) + center.x(), int(self.paths[0][0].y * self.scale) + center.y())
                 for i in range(1, len(self.paths)):
                     point = QPoint(
-                        int(self.paths[i].x * self.scale) + center.x(), int(self.paths[i].y * self.scale) + center.y())
-                    pen = QPen(Qt.GlobalColor.green, 2,
-                               Qt.PenStyle.SolidLine,
-                               Qt.PenCapStyle.RoundCap,
-                               Qt.PenJoinStyle.RoundJoin)
+                        int(self.paths[i][0].x * self.scale) + center.x(), int(self.paths[i][0].y * self.scale) + center.y())
+                    if self.paths[i - 1][1]:  # 碰撞點
+                        pen = QPen(Qt.GlobalColor.red, 2,
+                                   Qt.PenStyle.SolidLine,
+                                   Qt.PenCapStyle.RoundCap,
+                                   Qt.PenJoinStyle.RoundJoin)
+                    else:
+                        pen = QPen(Qt.GlobalColor.green, 2,
+                                   Qt.PenStyle.SolidLine,
+                                   Qt.PenCapStyle.RoundCap,
+                                   Qt.PenJoinStyle.RoundJoin)
                     painter.setPen(pen)
                     painter.drawLine(lastPoint, point)
                     lastPoint = point

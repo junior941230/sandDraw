@@ -305,7 +305,7 @@ class PathPlannerPro:
     # 繞行角點計算
     # ─────────────────────────────────────────
 
-    def getCornersByDist(self, p, rect):
+    def get_corners(self, rect):
         """
         取得矩形四個角點（含安全邊距向外推）
         回傳順序：左上、右上、右下、左下
@@ -316,42 +316,51 @@ class PathPlannerPro:
                   Point(xmax, ymin),  # C3 右下
                   Point(xmin, ymin)  # C4 左下
                   ]
-        return sorted(points, key=lambda c: self.distance(p, c))
+        return points
 
-    def get_left_detour(self, from_point, rect):
+    def get_left_detour(self, from_point, to_point, rect):
         """
         繞左側的角點序列
         用叉積判斷哪些角點在路徑左側，依序排列
         """
-        corner1 = self.getCornersByDist(from_point, rect)[0]
-        points = self.getCornersByDist(from_point, rect)[2:]
-        corner2 = points[0]
+        corners = self.get_corners(rect)
+        # 判斷每個角點是否在 from→to 的左側（cross > 0）
+        left = [c for c in corners
+                if self.cross_product(from_point, to_point, c) > 0]
 
-        return [corner1, corner2]
+        # 依照「從 from_point 出發的角度」排序，確保路徑順序正確
+        left.sort(key=lambda c: math.atan2(c.y - from_point.y,
+                                           c.x - from_point.x))
+        left.reverse()  # 左側繞行點順序反轉，確保從 from_point 開始的路徑順序正確
+        return left
 
-    def get_right_detour(self, from_point, rect):
+    def get_right_detour(self, from_point, to_point, rect):
         """
         繞右側的角點序列
         用叉積判斷哪些角點在路徑右側，依序排列
         """
-        corner1 = self.getCornersByDist(from_point, rect)[1]
-        points = self.getCornersByDist(from_point, rect)[2:]
-        corner2 = points[0]
+        corners = self.get_corners(rect)
+        right = [c for c in corners
+                 if self.cross_product(from_point, to_point, c) < 0]
 
-        return [corner1, corner2]
+        # 右側角點排序方向相反
+        right.sort(key=lambda c: math.atan2(c.y - from_point.y,
+                                            c.x - from_point.x),
+                   reverse=True)
+        right.reverse()  # 右側繞行點順序反轉，確保從 from_point 開始的路徑順序正確
+        return right
 
     # ─────────────────────────────────────────
     # 找出最佳繞行方案
     # ─────────────────────────────────────────
 
     def getBestPath(self, from_point, to_point, obstacle):
-        corners1 = self.get_left_detour(from_point, obstacle)
-        corners2 = self.get_right_detour(from_point, obstacle)
-        left_len = self.path_length([from_point] + corners1 + [to_point])
-        right_len = self.path_length([from_point] + corners2 + [to_point])
-        best_detour = corners1 if left_len < right_len else corners2
-        print(f"從 {from_point} 到 {to_point}，左繞行長度: {left_len:.2f}, 右繞行長度: {right_len:.2f}，選擇 {'左' if left_len < right_len else '右'}側繞行")
-        print(f"左側繞行點: {corners1}, 右側繞行點: {corners2}")
+        leftCorner = self.get_left_detour(from_point, to_point, obstacle)
+        rightCorner = self.get_right_detour(from_point, to_point, obstacle)
+        left_len = self.path_length([from_point] + leftCorner + [to_point])
+        right_len = self.path_length([from_point] + rightCorner + [to_point])
+        best_detour = leftCorner if left_len < right_len else rightCorner
+        print(f"左側繞行點: {leftCorner}, 右側繞行點: {rightCorner}")
         return best_detour
 
     # ─────────────────────────────────────────
@@ -377,10 +386,8 @@ class PathPlannerPro:
             if collisions and not isLastCollision:
                 newPaths[-1] = (newPaths[-1][0], True,
                                 obsNum)  # 碰撞開始，標記上一點
-                print(f"標記: {newPaths[-1]}")
             if not collisions:
                 newPaths.append((point, False, obsNum))
-            print(f"處理路徑點: {point}, 碰撞: {collisions}, 上次碰撞: {isLastCollision}")
             isLastCollision = collisions
 
         resultPaths = []
@@ -390,8 +397,9 @@ class PathPlannerPro:
                 from_point = newPaths[i][0]  # 從上一個非碰撞點出發
                 to_point = newPaths[i + 1][0]    # 到下一個非碰撞點
                 obstacle = obstacles[newPaths[i][2]]  # 碰撞的障礙物
-                detour = self.getBestPath(from_point, to_point, obstacle)
-                resultPaths.extend([(p, True, None) for p in detour])
+                corners = self.getBestPath(from_point, to_point, obstacle)
+                resultPaths.extend([(p, True, None)
+                                   for p in corners])  # 加入繞行點，這裡不標記為碰撞點
         return resultPaths
 
     # ─────────────────────────────────────────

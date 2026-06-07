@@ -100,7 +100,6 @@ class mainCanvas(QWidget):
                     lastPoint = point
         elif self.drawMode == "plan":
             if len(self.paths) > 0:
-
                 lastPoint = QPoint(
                     int(self.paths[0][0].x * self.scale) + center.x(), int(self.paths[0][0].y * self.scale) + center.y())
                 for i in range(1, len(self.paths)):

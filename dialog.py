@@ -61,6 +61,12 @@ PRESETS = {
         "t_min": 0, "t_max": 12, "n_pts": 2000,
         "decay": 0.0,
     },
+    "清除": {
+        "x_expr": "t * cos(t)",
+        "y_expr": "t * sin(t)",
+        "t_min": 0, "t_max": 50, "n_pts": 2000,
+        "decay": 0.0,
+    }
 }
 
 COLORMAPS = ["plasma", "viridis", "inferno",
@@ -131,7 +137,7 @@ class SandPlotDialog(QDialog):
         self.t_min.setSingleStep(0.1)
         self.t_min.valueChanged.connect(self.plot)
         self.t_max = QDoubleSpinBox()
-        self.t_max.setRange(0, 32)
+        self.t_max.setRange(0, 1024)
         self.t_max.setValue(2)
         self.t_max.setSingleStep(0.1)
         self.t_max.valueChanged.connect(self.plot)

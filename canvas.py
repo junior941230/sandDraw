@@ -303,6 +303,7 @@ class mainCanvas(QWidget):
         self.colorList = colorList
 
         # 繪製函數曲線
+        self.scaleCaculate(0)  # 確保函數圖形適合畫布
         self.update()
 
     def addObstacle(self):

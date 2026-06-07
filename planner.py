@@ -324,12 +324,8 @@ class PathPlannerPro:
         用叉積判斷哪些角點在路徑左側，依序排列
         """
         corner1 = self.getCornersByDist(from_point, rect)[0]
-        corners = self.getCornersByDist(corner1, rect)
-        # 如果兩個最近的角點距離非常近，選擇第二個作為 corner2
-        if self.distance(corner1, corners[0]) < 0.1:
-            corner2 = corners[1]
-        else:
-            corner2 = corners[0]
+        points = self.getCornersByDist(from_point, rect)[2:]
+        corner2 = points[0]
 
         return [corner1, corner2]
 
@@ -339,12 +335,8 @@ class PathPlannerPro:
         用叉積判斷哪些角點在路徑右側，依序排列
         """
         corner1 = self.getCornersByDist(from_point, rect)[1]
-        corners = self.getCornersByDist(corner1, rect)
-        # 如果兩個最近的角點距離非常近，選擇第二個作為 corner2
-        if self.distance(corner1, corners[0]) < 0.1:
-            corner2 = corners[1]
-        else:
-            corner2 = corners[0]
+        points = self.getCornersByDist(from_point, rect)[2:]
+        corner2 = points[0]
 
         return [corner1, corner2]
 

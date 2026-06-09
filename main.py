@@ -5,6 +5,7 @@ from esp32serial import ESP32Serial
 from canvas import mainCanvas
 from gcode import GCodeProcessor
 from UI import Ui_MainWindow
+from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from dialog import SandPlotDialog
 from planner import PathPlannerPro
 import sys
@@ -24,6 +25,14 @@ class MainController(QMainWindow):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
+        for child in self.ui.centralwidget.children():
+            if isinstance(child, QWidget):
+                self._container = child
+                break
+
+        layout = QVBoxLayout(self.ui.centralwidget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._container)
 
         """serial init"""
         self.esp32_serial = ESP32Serial()
@@ -94,9 +103,9 @@ class MainController(QMainWindow):
             self.infoWindow("請輸入一個命令。", mestype="error")
 
     def handle_start(self):
-        # if not self.esp32_serial.isConnected():
-        #     self.infoWindow("請先連接到 ESP32。", mestype="error")
-        #     return
+        if not self.esp32_serial.isConnected():
+            self.infoWindow("請先連接到 ESP32。", mestype="error")
+            return
         self.startTimes += 1
 
         if self.startTimes == 1:

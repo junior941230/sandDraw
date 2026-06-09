@@ -33,7 +33,7 @@ class mainCanvas(QWidget):
 
         self.plotSize = 180
         self.plotCenter = (180, 180)
-        self.scale = 2.5
+        self.scale = 2.25
         self.funcScale = 10.0
 
         self.drawMode = "draw"
